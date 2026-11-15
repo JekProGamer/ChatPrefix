@@ -12,7 +12,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => "1.1.1";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -86,6 +86,12 @@ public sealed class ChatPrefix : BasePlugin
 
         if (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
             message = message[1..^1];
+
+        // Let chat-triggered commands (e.g. !admin, /admin) reach other plugins.
+        // ChatPrefix only formats regular player messages.
+        if (message.StartsWith("!", StringComparison.Ordinal) ||
+            message.StartsWith("/", StringComparison.Ordinal))
+            return HookResult.Continue;
 
         if (IsAntiFloodPunished(player))
             return HookResult.Handled;
