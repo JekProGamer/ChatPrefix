@@ -1,7 +1,7 @@
 {
-  "DefaultPrefix": "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %Player%",
+  "DefaultPrefix": "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %player%",
   "ReloadPermission": "@css/root",
   "PlayerPrefixes": {
-    "76561198000000000": "❤️ {RED}Coder {White}| %steam64%"
+    "76561198000000000": "❤️ {RED}Coder {White}| %player%"
   }
 }
