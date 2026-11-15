@@ -11,12 +11,15 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.0.1";
+    public override string ModuleVersion => "1.1.0";
     public override string ModuleAuthor => "JekProGamer";
-    public override string ModuleDescription => "Per-player configurable colored chat prefixes.";
+    public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
     private PluginConfig _config = new();
     private string ConfigPath => Path.Combine(ModuleDirectory, "config.json");
+
+    private readonly Dictionary<ulong, Queue<DateTime>> _messageHistory = new();
+    private readonly Dictionary<ulong, DateTime> _punishedUntil = new();
 
     private static readonly Regex ColorToken = new(
         @"\{(?<color>[A-Za-z]+)\}",
@@ -28,7 +31,15 @@ public sealed class ChatPrefix : BasePlugin
         AddCommandListener("say", OnSay);
         AddCommandListener("say_team", OnSayTeam);
         AddCommand("css_chatprefix_reload", "Reload ChatPrefix configuration", OnReloadCommand);
-        Logger.LogInformation("ChatPrefix loaded. Config: {ConfigPath}", ConfigPath);
+        Logger.LogInformation("ChatPrefix v{Version} loaded. Config: {ConfigPath}", ModuleVersion, ConfigPath);
+    }
+
+    public override void Unload(bool hotReload)
+    {
+        RemoveCommandListener("say", OnSay);
+        RemoveCommandListener("say_team", OnSayTeam);
+        _messageHistory.Clear();
+        _punishedUntil.Clear();
     }
 
     private void LoadConfig()
@@ -44,6 +55,12 @@ public sealed class ChatPrefix : BasePlugin
         {
             _config = JsonSerializer.Deserialize<PluginConfig>(File.ReadAllText(ConfigPath),
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new PluginConfig();
+
+            _config.PlayerPrefixes ??= new Dictionary<string, string>();
+            _config.AntiFlood_Ignore_Flags ??= "SteamIDs: | Flags: | Groups: ";
+            _config.AntiFlood_Messages = Math.Max(0, _config.AntiFlood_Messages);
+            _config.AntiFlood_Seconds = Math.Max(1, _config.AntiFlood_Seconds);
+            _config.AntiFlood_PunishCooldown = Math.Max(1, _config.AntiFlood_PunishCooldown);
         }
         catch (Exception ex)
         {
@@ -69,6 +86,9 @@ public sealed class ChatPrefix : BasePlugin
         if (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
             message = message[1..^1];
 
+        if (IsAntiFloodPunished(player))
+            return HookResult.Handled;
+
         var prefixTemplate = _config.PlayerPrefixes.TryGetValue(player.SteamID.ToString(), out var customPrefix)
             ? customPrefix
             : _config.DefaultPrefix;
@@ -88,6 +108,89 @@ public sealed class ChatPrefix : BasePlugin
         }
 
         return HookResult.Handled;
+    }
+
+    private bool IsAntiFloodPunished(CCSPlayerController player)
+    {
+        if (_config.AntiFlood_Messages <= 0 || IsAntiFloodIgnored(player))
+            return false;
+
+        var steamId = player.SteamID;
+        var now = DateTime.UtcNow;
+
+        if (_punishedUntil.TryGetValue(steamId, out var blockedUntil))
+        {
+            if (now < blockedUntil)
+            {
+                var remaining = Math.Max(1, (int)Math.Ceiling((blockedUntil - now).TotalSeconds));
+                player.PrintToChat($"{ChatColors.Red}[ChatPrefix] Не флуди! Подожди {ChatColors.Gold}{remaining}{ChatColors.Red} сек.");
+                return true;
+            }
+
+            _punishedUntil.Remove(steamId);
+        }
+
+        if (!_messageHistory.TryGetValue(steamId, out var history))
+        {
+            history = new Queue<DateTime>();
+            _messageHistory[steamId] = history;
+        }
+
+        var windowStart = now.AddSeconds(-_config.AntiFlood_Seconds);
+        while (history.Count > 0 && history.Peek() < windowStart)
+            history.Dequeue();
+
+        history.Enqueue(now);
+
+        if (history.Count < _config.AntiFlood_Messages)
+            return false;
+
+        _messageHistory.Remove(steamId);
+        var cooldown = TimeSpan.FromSeconds(_config.AntiFlood_PunishCooldown);
+        _punishedUntil[steamId] = now.Add(cooldown);
+
+        player.PrintToChat($"{ChatColors.Red}[ChatPrefix] Флуд обнаружен! Чат заблокирован на {ChatColors.Gold}{_config.AntiFlood_PunishCooldown}{ChatColors.Red} сек.");
+        return true;
+    }
+
+    private bool IsAntiFloodIgnored(CCSPlayerController player)
+    {
+        var setting = _config.AntiFlood_Ignore_Flags;
+        if (string.IsNullOrWhiteSpace(setting))
+            return false;
+
+        var steamIds = new List<string>();
+        var flags = new List<string>();
+        var groups = new List<string>();
+
+        foreach (var section in setting.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = section.IndexOf(':');
+            if (separator < 0)
+                continue;
+
+            var key = section[..separator].Trim();
+            var values = section[(separator + 1)..]
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            if (key.Equals("SteamIDs", StringComparison.OrdinalIgnoreCase))
+                steamIds.AddRange(values);
+            else if (key.Equals("Flags", StringComparison.OrdinalIgnoreCase))
+                flags.AddRange(values);
+            else if (key.Equals("Groups", StringComparison.OrdinalIgnoreCase))
+                groups.AddRange(values);
+        }
+
+        if (steamIds.Contains(player.SteamID.ToString(), StringComparer.OrdinalIgnoreCase))
+            return true;
+
+        if (flags.Any(flag => AdminManager.PlayerHasPermissions(player, flag)))
+            return true;
+
+        if (groups.Any(group => AdminManager.PlayerInGroup(player, group)))
+            return true;
+
+        return false;
     }
 
     private string FormatTemplate(string template, CCSPlayerController player)
@@ -127,6 +230,9 @@ public sealed class ChatPrefix : BasePlugin
         }
 
         LoadConfig();
+        _messageHistory.Clear();
+        _punishedUntil.Clear();
+
         if (player != null && player.IsValid)
             player.PrintToChat($"{ChatColors.Green}[ChatPrefix] Конфигурация перезагружена.");
         else
@@ -141,5 +247,10 @@ public sealed class ChatPrefix : BasePlugin
         {
             ["76561198000000000"] = "❤️ {RED}Coder {WHITE}| %player%"
         };
+
+        public int AntiFlood_Messages { get; set; } = 0;
+        public int AntiFlood_Seconds { get; set; } = 5;
+        public int AntiFlood_PunishCooldown { get; set; } = 10;
+        public string AntiFlood_Ignore_Flags { get; set; } = "SteamIDs: | Flags: | Groups: ";
     }
 }
