@@ -3,5 +3,9 @@
   "ReloadPermission": "@css/root",
   "PlayerPrefixes": {
     "76561198000000000": "❤️ {RED}Coder {White}| %player%"
-  }
+  },
+  "AntiFlood_Messages": 0,
+  "AntiFlood_Seconds": 5,
+  "AntiFlood_PunishCooldown": 10,
+  "AntiFlood_Ignore_Flags": "SteamIDs: | Flags: | Groups: "
 }
