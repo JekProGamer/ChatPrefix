@@ -36,8 +36,8 @@ public sealed class ChatPrefix : BasePlugin
 
     public override void Unload(bool hotReload)
     {
-        RemoveCommandListener("say", OnSay);
-        RemoveCommandListener("say_team", OnSayTeam);
+        RemoveCommandListener("say", OnSay, HookMode.Pre);
+        RemoveCommandListener("say_team", OnSayTeam, HookMode.Pre);
         _messageHistory.Clear();
         _punishedUntil.Clear();
     }
