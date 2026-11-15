@@ -11,7 +11,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "1.0.1";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Per-player configurable colored chat prefixes.";
 
@@ -66,7 +66,6 @@ public sealed class ChatPrefix : BasePlugin
         if (string.IsNullOrWhiteSpace(message))
             return HookResult.Handled;
 
-        // Remove surrounding quotes that may be included by the engine.
         if (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
             message = message[1..^1];
 
@@ -93,9 +92,7 @@ public sealed class ChatPrefix : BasePlugin
 
     private string FormatTemplate(string template, CCSPlayerController player)
     {
-        var output = template
-            .Replace("%Player%", player.PlayerName, StringComparison.OrdinalIgnoreCase)
-            .Replace("%steam64%", player.SteamID.ToString(), StringComparison.OrdinalIgnoreCase);
+        var output = template.Replace("%player%", player.PlayerName, StringComparison.OrdinalIgnoreCase);
 
         return ColorToken.Replace(output, match =>
         {
@@ -138,11 +135,11 @@ public sealed class ChatPrefix : BasePlugin
 
     private sealed class PluginConfig
     {
-        public string DefaultPrefix { get; set; } = "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %Player%";
+        public string DefaultPrefix { get; set; } = "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %player%";
         public string ReloadPermission { get; set; } = "@css/root";
         public Dictionary<string, string> PlayerPrefixes { get; set; } = new()
         {
-            ["76561198000000000"] = "❤️ {RED}Coder {WHITE}| %steam64%"
+            ["76561198000000000"] = "❤️ {RED}Coder {WHITE}| %player%"
         };
     }
 }
