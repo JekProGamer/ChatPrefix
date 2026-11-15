@@ -150,7 +150,7 @@ public sealed class ChatPrefix : BasePlugin
         var cooldown = TimeSpan.FromSeconds(_config.AntiFlood_PunishCooldown);
         _punishedUntil[steamId] = now.Add(cooldown);
 
-        player.PrintToChat($"{ChatColors.Red}AntiFood {ChatColors.White}| {ChatColors.Silver}Спам блокировка чата на {ChatColors.Green}{_config.AntiFlood_PunishCooldown} {ChatColors.Silver}Секунд.");
+        player.PrintToChat($" {ChatColors.Red}AntiFood {ChatColors.White}| {ChatColors.Silver}Спам блокировка чата на {ChatColors.Green}{_config.AntiFlood_PunishCooldown} {ChatColors.Silver}Секунд.");
         return true;
     }
 
