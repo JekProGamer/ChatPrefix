@@ -12,7 +12,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.1";
+    public override string ModuleVersion => "1.1.2";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -29,8 +29,8 @@ public sealed class ChatPrefix : BasePlugin
     public override void Load(bool hotReload)
     {
         LoadConfig();
-        AddCommandListener("say", OnSay);
-        AddCommandListener("say_team", OnSayTeam);
+        AddCommandListener("say", OnSay, HookMode.Pre);
+        AddCommandListener("say_team", OnSayTeam, HookMode.Pre);
         AddCommand("css_chatprefix_reload", "Reload ChatPrefix configuration", OnReloadCommand);
         Logger.LogInformation("ChatPrefix v{Version} loaded. Config: {ConfigPath}", ModuleVersion, ConfigPath);
     }
@@ -87,10 +87,12 @@ public sealed class ChatPrefix : BasePlugin
         if (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
             message = message[1..^1];
 
-        // Let chat-triggered commands (e.g. !admin, /admin) reach other plugins.
-        // ChatPrefix only formats regular player messages.
-        if (message.StartsWith("!", StringComparison.Ordinal) ||
-            message.StartsWith("/", StringComparison.Ordinal))
+        // Never intercept chat commands. Let AdminPlus and every other plugin
+        // process any command beginning with ! (and slash-style commands too).
+        // Bypass both prefix formatting and anti-flood for command messages.
+        var commandText = message.TrimStart();
+        if (commandText.StartsWith("!", StringComparison.Ordinal) ||
+            commandText.StartsWith("/", StringComparison.Ordinal))
             return HookResult.Continue;
 
         if (IsAntiFloodPunished(player))
