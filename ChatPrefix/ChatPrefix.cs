@@ -123,8 +123,8 @@ public sealed class ChatPrefix : BasePlugin
         {
             if (now < blockedUntil)
             {
-                var remaining = Math.Max(1, (int)Math.Ceiling((blockedUntil - now).TotalSeconds));
-                player.PrintToChat($"{ChatColors.Red}[ChatPrefix] Не флуди! Подожди {ChatColors.Gold}{remaining}{ChatColors.Red} сек.");
+                // The punishment notice is sent once, when the mute starts.
+                // Further chat attempts are silently blocked to avoid flooding chat with warnings.
                 return true;
             }
 
@@ -150,7 +150,7 @@ public sealed class ChatPrefix : BasePlugin
         var cooldown = TimeSpan.FromSeconds(_config.AntiFlood_PunishCooldown);
         _punishedUntil[steamId] = now.Add(cooldown);
 
-        player.PrintToChat($"{ChatColors.Red}[ChatPrefix] Флуд обнаружен! Чат заблокирован на {ChatColors.Gold}{_config.AntiFlood_PunishCooldown}{ChatColors.Red} сек.");
+        player.PrintToChat($"{ChatColors.Red}AntiFood {ChatColors.White}| {ChatColors.Silver}Спам блокировка чата на {ChatColors.Green}{_config.AntiFlood_PunishCooldown} {ChatColors.Silver}Секунд.");
         return true;
     }
 
