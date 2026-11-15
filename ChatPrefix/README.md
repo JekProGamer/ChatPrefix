@@ -5,7 +5,7 @@ CounterStrikeSharp plugin for CS2 that adds colored chat prefixes.
 ## Features
 - Default prefix for all players.
 - Individual prefix overrides by Steam64 ID.
-- Placeholders: `%Player%` and `%steam64%`.
+- Placeholder: `%player%` — replaced with the sender's current player name.
 - Color tokens: `{WHITE}`, `{RED}`, `{GREEN}`, `{BLUE}`, `{ORANGE}`, `{GOLD}`, `{YELLOW}`, `{PURPLE}`, `{MAGENTA}`, `{GREY}`, `{SILVER}`, `{LIGHTBLUE}`, `{DARKRED}`, `{LIME}`.
 - Team chat remains team-only.
 - `css_chatprefix_reload` reloads the config; permission defaults to `@css/root`.
@@ -15,15 +15,15 @@ Edit `config.json`:
 
 ```json
 {
-  "DefaultPrefix": "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %Player%",
+  "DefaultPrefix": "∆ {Orange}Rez{GOLD}Top.cc{WHITE}| %player%",
   "ReloadPermission": "@css/root",
   "PlayerPrefixes": {
-    "76561198000000000": "❤️ {RED}Coder {White}| %steam64%"
+    "76561198000000000": "❤️ {RED}Coder {White}| %player%"
   }
 }
 ```
 
-Replace the example Steam64 key with the player's actual SteamID64. A custom prefix overrides the default prefix for that player.
+Use the player's Steam64 ID as the dictionary key. A custom prefix overrides the default prefix for that player. In either prefix, `%player%` is replaced with that player's current nickname.
 
 ## Install
 1. Build using .NET 10:
