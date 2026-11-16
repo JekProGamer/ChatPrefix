@@ -12,7 +12,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.2";
+    public override string ModuleVersion => "1.1.3";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -31,6 +31,7 @@ public sealed class ChatPrefix : BasePlugin
         LoadConfig();
         AddCommandListener("say", OnSay, HookMode.Pre);
         AddCommandListener("say_team", OnSayTeam, HookMode.Pre);
+        RegisterEventHandler<EventPlayerChat>(OnPlayerChat, HookMode.Pre);
         AddCommand("css_chatprefix_reload", "Reload ChatPrefix configuration", OnReloadCommand);
         Logger.LogInformation("ChatPrefix v{Version} loaded. Config: {ConfigPath}", ModuleVersion, ConfigPath);
     }
@@ -74,6 +75,20 @@ public sealed class ChatPrefix : BasePlugin
 
     private HookResult OnSayTeam(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: true);
+
+    // Chat commands are executed by CounterStrikeSharp during chat processing.
+    // Suppress only their broadcast event, without blocking command dispatch.
+    private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
+    {
+        var message = @event.Text?.TrimStart();
+        if (!string.IsNullOrEmpty(message) && message.StartsWith("!", StringComparison.Ordinal))
+        {
+            info.DontBroadcast = true;
+            return HookResult.Handled;
+        }
+
+        return HookResult.Continue;
+    }
 
     private HookResult HandleChat(CCSPlayerController? player, CommandInfo command, bool teamOnly)
     {
