@@ -13,7 +13,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.6";
+    public override string ModuleVersion => "1.1.7";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -22,6 +22,7 @@ public sealed class ChatPrefix : BasePlugin
 
     private readonly Dictionary<ulong, Queue<DateTime>> _messageHistory = new();
     private readonly Dictionary<ulong, DateTime> _punishedUntil = new();
+    private readonly Dictionary<int, DateTime> _pendingHiddenChat = new();
 
     private static readonly Regex ColorToken = new(
         @"\{(?<color>[A-Za-z]+)\}",
@@ -43,6 +44,7 @@ public sealed class ChatPrefix : BasePlugin
         RemoveCommandListener("say_team", OnSayTeam, HookMode.Pre);
         _messageHistory.Clear();
         _punishedUntil.Clear();
+        _pendingHiddenChat.Clear();
     }
 
     private void LoadConfig()
@@ -77,27 +79,35 @@ public sealed class ChatPrefix : BasePlugin
     private HookResult OnSayTeam(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: true);
 
-    // Hide all messages whose actual chat text starts with !.
-    // Continue the event pipeline so command handlers and other plugins are not interrupted.
+    // Hide ! messages using both the original say command and player_chat event.
+    // The say listener records the sender before the game creates player_chat,
+    // so suppression does not depend on EventPlayerChat.Text preserving the prefix.
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
-        var message = @event.Text;
+        var now = DateTime.UtcNow;
+        var senderIndex = (int)@event.Userid;
 
-        if (string.IsNullOrWhiteSpace(message))
-            return HookResult.Continue;
-
-        message = message.Trim();
-
-        // Normalize quoted text used by some say paths.
-        while (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
-            message = message[1..^1].Trim();
-
-        if (message.StartsWith("!", StringComparison.Ordinal))
+        if (_pendingHiddenChat.TryGetValue(senderIndex, out var expiresAt))
         {
-            // Suppress the player_chat event itself. The say command listener has
-            // already been allowed to continue, so registered chat commands can run.
+            _pendingHiddenChat.Remove(senderIndex);
+            if (now <= expiresAt)
+            {
+                info.DontBroadcast = true;
+                return HookResult.Continue;
+            }
+        }
+
+        var message = @event.Text?.Trim();
+        while (!string.IsNullOrEmpty(message) && message.Length >= 2 &&
+               message[0] == '"' && message[^1] == '"')
+        {
+            message = message[1..^1].Trim();
+        }
+
+        if (!string.IsNullOrEmpty(message) &&
+            message.StartsWith("!", StringComparison.Ordinal))
+        {
             info.DontBroadcast = true;
-            return HookResult.Handled;
         }
 
         return HookResult.Continue;
@@ -115,12 +125,18 @@ public sealed class ChatPrefix : BasePlugin
         if (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
             message = message[1..^1];
 
-        // Never intercept chat commands. Let AdminPlus and every other plugin
-        // process any command beginning with ! (and slash-style commands too).
-        // Bypass both prefix formatting and anti-flood for command messages.
+        // Record ! chat before player_chat is emitted. The event hook will hide
+        // that exact sender's next chat event, while this listener returns Continue
+        // so AdminPlus and other command listeners can still execute the command.
         var commandText = message.TrimStart();
-        if (commandText.StartsWith("!", StringComparison.Ordinal) ||
-            commandText.StartsWith("/", StringComparison.Ordinal))
+        if (commandText.StartsWith("!", StringComparison.Ordinal))
+        {
+            _pendingHiddenChat[player.Index] = DateTime.UtcNow.AddSeconds(2);
+            return HookResult.Continue;
+        }
+
+        // Slash-style commands keep their existing behavior.
+        if (commandText.StartsWith("/", StringComparison.Ordinal))
             return HookResult.Continue;
 
         if (IsAntiFloodPunished(player))
@@ -269,6 +285,7 @@ public sealed class ChatPrefix : BasePlugin
         LoadConfig();
         _messageHistory.Clear();
         _punishedUntil.Clear();
+        _pendingHiddenChat.Clear();
 
         if (player != null && player.IsValid)
             player.PrintToChat($"{ChatColors.Green}[ChatPrefix] Конфигурация перезагружена.");
