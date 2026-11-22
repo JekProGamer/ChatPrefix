@@ -13,7 +13,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.5";
+    public override string ModuleVersion => "1.1.6";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -93,7 +93,12 @@ public sealed class ChatPrefix : BasePlugin
             message = message[1..^1].Trim();
 
         if (message.StartsWith("!", StringComparison.Ordinal))
+        {
+            // Suppress the player_chat event itself. The say command listener has
+            // already been allowed to continue, so registered chat commands can run.
             info.DontBroadcast = true;
+            return HookResult.Handled;
+        }
 
         return HookResult.Continue;
     }
