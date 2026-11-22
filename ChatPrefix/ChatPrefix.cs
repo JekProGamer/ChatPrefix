@@ -89,7 +89,7 @@ public sealed class ChatPrefix : BasePlugin
         if (eventPlayer != null && eventPlayer.IsValid &&
             _pendingHiddenChat.TryGetValue(eventPlayer.Index, out var expiresAt))
         {
-            _pendingHiddenChat.Remove(senderIndex);
+            _pendingHiddenChat.Remove(eventPlayer.Index);
             if (now <= expiresAt)
             {
                 info.DontBroadcast = true;
