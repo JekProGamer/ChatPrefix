@@ -33,6 +33,7 @@ public sealed class ChatPrefix : BasePlugin
         LoadConfig();
         AddCommandListener("say", OnSay, HookMode.Pre);
         AddCommandListener("say_team", OnSayTeam, HookMode.Pre);
+        AddCommandListener("meta", OnMetaCommand, HookMode.Pre);
         RegisterEventHandler<EventPlayerChat>(OnPlayerChat, HookMode.Pre);
         AddCommand("css_chatprefix_reload", "Reload ChatPrefix configuration", OnReloadCommand);
         Logger.LogInformation("ChatPrefix v{Version} loaded. Config: {ConfigPath}", ModuleVersion, ConfigPath);
@@ -42,6 +43,7 @@ public sealed class ChatPrefix : BasePlugin
     {
         RemoveCommandListener("say", OnSay, HookMode.Pre);
         RemoveCommandListener("say_team", OnSayTeam, HookMode.Pre);
+        RemoveCommandListener("meta", OnMetaCommand, HookMode.Pre);
         _messageHistory.Clear();
         _punishedUntil.Clear();
         _pendingHiddenChat.Clear();
@@ -72,6 +74,10 @@ public sealed class ChatPrefix : BasePlugin
             Logger.LogError(ex, "Could not read ChatPrefix config. Keeping current/default config.");
         }
     }
+
+    // Hide Metamod command output from players while preserving server-console access.
+    private HookResult OnMetaCommand(CCSPlayerController? player, CommandInfo command)
+        => player != null ? HookResult.Handled : HookResult.Continue;
 
     private HookResult OnSay(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: false);
