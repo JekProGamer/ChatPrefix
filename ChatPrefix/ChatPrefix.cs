@@ -13,7 +13,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.3";
+    public override string ModuleVersion => "1.1.4";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -77,11 +77,18 @@ public sealed class ChatPrefix : BasePlugin
     private HookResult OnSayTeam(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: true);
 
-    // Chat commands are executed by CounterStrikeSharp during chat processing.
-    // Suppress only their broadcast event, without blocking command dispatch.
+    // Hide every bang-prefixed chat command, but leave command processing untouched.
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
-        var message = @event.Text?.TrimStart();
+        var message = @event.Text?.Trim();
+
+        // Some chat paths can provide the text with surrounding quotes.
+        if (!string.IsNullOrEmpty(message) && message.Length >= 2 &&
+            message[0] == '"' && message[^1] == '"')
+        {
+            message = message[1..^1].TrimStart();
+        }
+
         if (!string.IsNullOrEmpty(message) && message.StartsWith("!", StringComparison.Ordinal))
         {
             info.DontBroadcast = true;
