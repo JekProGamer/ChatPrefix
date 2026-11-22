@@ -13,7 +13,7 @@ namespace ChatPrefix;
 public sealed class ChatPrefix : BasePlugin
 {
     public override string ModuleName => "ChatPrefix";
-    public override string ModuleVersion => "1.1.4";
+    public override string ModuleVersion => "1.1.5";
     public override string ModuleAuthor => "JekProGamer";
     public override string ModuleDescription => "Colored chat prefixes with configurable anti-flood protection.";
 
@@ -77,23 +77,23 @@ public sealed class ChatPrefix : BasePlugin
     private HookResult OnSayTeam(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: true);
 
-    // Hide every bang-prefixed chat command, but leave command processing untouched.
+    // Hide all messages whose actual chat text starts with !.
+    // Continue the event pipeline so command handlers and other plugins are not interrupted.
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
-        var message = @event.Text?.Trim();
+        var message = @event.Text;
 
-        // Some chat paths can provide the text with surrounding quotes.
-        if (!string.IsNullOrEmpty(message) && message.Length >= 2 &&
-            message[0] == '"' && message[^1] == '"')
-        {
-            message = message[1..^1].TrimStart();
-        }
+        if (string.IsNullOrWhiteSpace(message))
+            return HookResult.Continue;
 
-        if (!string.IsNullOrEmpty(message) && message.StartsWith("!", StringComparison.Ordinal))
-        {
+        message = message.Trim();
+
+        // Normalize quoted text used by some say paths.
+        while (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
+            message = message[1..^1].Trim();
+
+        if (message.StartsWith("!", StringComparison.Ordinal))
             info.DontBroadcast = true;
-            return HookResult.Handled;
-        }
 
         return HookResult.Continue;
     }
