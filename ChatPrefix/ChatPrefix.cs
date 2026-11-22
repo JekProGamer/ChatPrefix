@@ -84,6 +84,10 @@ public sealed class ChatPrefix : BasePlugin
     // so suppression does not depend on EventPlayerChat.Text preserving the prefix.
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
+        var eventText = @event.Text ?? string.Empty;
+        if (eventText.TrimStart().StartsWith("!", StringComparison.Ordinal))
+            Logger.LogInformation("[ChatPrefix DEBUG] player_chat received ! message. UserId={UserId}, Text={Text}", @event.Userid, eventText);
+
         var now = DateTime.UtcNow;
         var eventPlayer = Utilities.GetPlayerFromUserid(@event.Userid);
         if (eventPlayer != null && eventPlayer.IsValid &&
@@ -132,6 +136,7 @@ public sealed class ChatPrefix : BasePlugin
         if (commandText.StartsWith("!", StringComparison.Ordinal))
         {
             _pendingHiddenChat[player.Index] = DateTime.UtcNow.AddSeconds(2);
+            Logger.LogInformation("[ChatPrefix DEBUG] say listener received ! message. Player={Player}, Index={Index}, Text={Text}", player.PlayerName, player.Index, commandText);
             return HookResult.Continue;
         }
 
