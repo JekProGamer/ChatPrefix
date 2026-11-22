@@ -22,7 +22,7 @@ public sealed class ChatPrefix : BasePlugin
 
     private readonly Dictionary<ulong, Queue<DateTime>> _messageHistory = new();
     private readonly Dictionary<ulong, DateTime> _punishedUntil = new();
-    private readonly Dictionary<int, DateTime> _pendingHiddenChat = new();
+    private readonly Dictionary<uint, DateTime> _pendingHiddenChat = new();
 
     private static readonly Regex ColorToken = new(
         @"\{(?<color>[A-Za-z]+)\}",
@@ -85,9 +85,9 @@ public sealed class ChatPrefix : BasePlugin
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
         var now = DateTime.UtcNow;
-        var senderIndex = (int)@event.Userid;
-
-        if (_pendingHiddenChat.TryGetValue(senderIndex, out var expiresAt))
+        var eventPlayer = Utilities.GetPlayerFromUserid(@event.Userid);
+        if (eventPlayer != null && eventPlayer.IsValid &&
+            _pendingHiddenChat.TryGetValue(eventPlayer.Index, out var expiresAt))
         {
             _pendingHiddenChat.Remove(senderIndex);
             if (now <= expiresAt)
@@ -131,7 +131,7 @@ public sealed class ChatPrefix : BasePlugin
         var commandText = message.TrimStart();
         if (commandText.StartsWith("!", StringComparison.Ordinal))
         {
-            _pendingHiddenChat[(int)player.Index] = DateTime.UtcNow.AddSeconds(2);
+            _pendingHiddenChat[player.Index] = DateTime.UtcNow.AddSeconds(2);
             return HookResult.Continue;
         }
 
