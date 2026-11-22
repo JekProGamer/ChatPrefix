@@ -79,39 +79,17 @@ public sealed class ChatPrefix : BasePlugin
     private HookResult OnSayTeam(CCSPlayerController? player, CommandInfo command)
         => HandleChat(player, command, teamOnly: true);
 
-    // Hide ! messages using both the original say command and player_chat event.
-    // The say listener records the sender before the game creates player_chat,
-    // so suppression does not depend on EventPlayerChat.Text preserving the prefix.
+    // Suppress ! messages at the event level without blocking the original say command.
     private HookResult OnPlayerChat(EventPlayerChat @event, GameEventInfo info)
     {
-        var eventText = @event.Text ?? string.Empty;
-        if (eventText.TrimStart().StartsWith("!", StringComparison.Ordinal))
-            Logger.LogInformation("[ChatPrefix DEBUG] player_chat received ! message. UserId={UserId}, Text={Text}", @event.Userid, eventText);
+        var message = @event.Text?.TrimStart() ?? string.Empty;
+        while (message.Length >= 2 && message[0] == '"' && message[^1] == '"')
+            message = message[1..^1].TrimStart();
 
-        var now = DateTime.UtcNow;
-        var eventPlayer = Utilities.GetPlayerFromUserid(@event.Userid);
-        if (eventPlayer != null && eventPlayer.IsValid &&
-            _pendingHiddenChat.TryGetValue(eventPlayer.Index, out var expiresAt))
-        {
-            _pendingHiddenChat.Remove(eventPlayer.Index);
-            if (now <= expiresAt)
-            {
-                info.DontBroadcast = true;
-                return HookResult.Continue;
-            }
-        }
-
-        var message = @event.Text?.Trim();
-        while (!string.IsNullOrEmpty(message) && message.Length >= 2 &&
-               message[0] == '"' && message[^1] == '"')
-        {
-            message = message[1..^1].Trim();
-        }
-
-        if (!string.IsNullOrEmpty(message) &&
-            message.StartsWith("!", StringComparison.Ordinal))
+        if (message.StartsWith("!", StringComparison.Ordinal))
         {
             info.DontBroadcast = true;
+            return HookResult.Handled;
         }
 
         return HookResult.Continue;
